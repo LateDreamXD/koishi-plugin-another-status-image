@@ -15,6 +15,10 @@ export interface Config {
   background: string[]
   darkMode: boolean
   backgroundMaskOpacity: number
+  displayName: {
+    sid: string
+    name: string
+  }[]
 }
 
 const path = pathToFileURL(join(__dirname, '../resource')).href
@@ -23,7 +27,11 @@ export const Config: Schema<Config> = Schema.object({
   background: Schema.array(String).role('table').description('背景图片地址，将会随机抽取其一')
     .default([`${path}/bg/default.webp`]),
   darkMode: Schema.boolean().description('暗色模式').default(false),
-  backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.15)
+  backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.15),
+  displayName: Schema.array(Schema.object({
+    sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
+    name: Schema.string().description('显示名称').required()
+  })).description('自定义机器人显示名称')
 })
 
 // Forked from https://github.com/koishijs/webui/blob/14ec1b6164cec194b1725f7cd076622e76cb946f/plugins/status/src/profile.ts#L52
@@ -118,7 +126,8 @@ export function apply(ctx: Context, cfg: Config) {
         os,
         messages: cachedMessageCount,
         maskOpacity: cfg.backgroundMaskOpacity,
-        platform: session.platform
+        platform: session.platform,
+        displayName: cfg.displayName
       }, cfg.darkMode)
       return await ctx.puppeteer.render(content)
     })

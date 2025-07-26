@@ -15,6 +15,10 @@ interface Info {
   os: string
   maskOpacity: number
   platform: string
+  displayName: {
+    sid: string
+    name: string
+  }[]
 }
 
 const statusMap: Record<Universal.Status, string[]> = {
@@ -64,6 +68,11 @@ export function generate(info: Info, dark: boolean) {
     const receivedMessages = info.messages[v.sid]?.receive ?? 0
     const sentMessages = info.messages[v.sid]?.send ?? 0
     const avatarImg = `<img src="${v.user.avatar}" />`
+    let name = v.user.nick || v.user.name || ''
+    const customize = info.displayName.find(e => e.sid === v.sid)
+    if (customize) {
+      name = customize.name
+    }
     const content = `
           <div class="box">
               <div class="botInfo">
@@ -79,7 +88,7 @@ export function generate(info: Info, dark: boolean) {
                       </div>
                   </div>
                   <div class="header">
-                      <h1>${v.user.nick || v.user.name}</h1>
+                      <h1>${name}</h1>
                       <hr noshade />
                       <p>
                           <span class="platform">
