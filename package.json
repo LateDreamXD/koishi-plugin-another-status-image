@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-status-image",
   "description": "Status view",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -19,6 +19,16 @@
     "koishi",
     "plugin",
     "status"
+  ],
+  "contributors": [
+    {
+      "name": "idranme",
+      "email": "email@email.com"
+    },
+    {
+      "name": "itzdrli",
+      "email": "itzdrli@proton.me"
+    }
   ],
   "peerDependencies": {
     "@koishijs/plugin-analytics": ">=2.0.6",

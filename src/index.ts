@@ -1,20 +1,22 @@
-import { Context, Schema, Dict, Random, $, Time } from 'koishi'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { Context, Schema, Dict, $, Time, Universal, Random } from 'koishi'
 import { versions, uptime } from 'node:process'
 import { cpus, freemem, totalmem } from 'node:os'
-import { generate } from './template'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { osInfo } from './osinfo'
-import type { } from 'koishi-plugin-puppeteer'
+import { MessageStats, BotInfo, SystemInfo } from './types'
+import { generate } from './template'
 import type { } from '@koishijs/plugin-analytics'
+import type { } from 'koishi-plugin-puppeteer'
+
+// Re-export types for external use
+export { MessageStats, BotInfo, SystemInfo } from './types'
 
 export const name = 'status-image'
-export const inject = ['puppeteer', 'database']
+export const inject = ['database', 'puppeteer']
 
 export interface Config {
   background: string[]
-  darkMode: boolean
-  backgroundMaskOpacity: number
   displayName: {
     sid: string
     name: string
@@ -26,12 +28,10 @@ const path = pathToFileURL(join(__dirname, '../resource')).href
 export const Config: Schema<Config> = Schema.object({
   background: Schema.array(String).role('table').description('背景图片地址，将会随机抽取其一')
     .default([`${path}/bg/default.webp`]),
-  darkMode: Schema.boolean().description('暗色模式').default(false),
-  backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.15),
   displayName: Schema.array(Schema.object({
     sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
     name: Schema.string().description('显示名称').required()
-  })).description('自定义机器人显示名称')
+  })).description('自定义机器人显示名称').default([])
 })
 
 // Forked from https://github.com/koishijs/webui/blob/14ec1b6164cec194b1725f7cd076622e76cb946f/plugins/status/src/profile.ts#L52
@@ -50,11 +50,6 @@ function getCpuUsage() {
     used: totalTick - totalIdle,
     total: totalTick
   }
-}
-
-export interface MessageStats {
-  send?: number
-  receive?: number
 }
 
 export function apply(ctx: Context, cfg: Config) {
@@ -104,31 +99,89 @@ export function apply(ctx: Context, cfg: Config) {
     return result
   }
 
-  ctx.command('status-image', '查看运行状态')
-    .action(async ({ session }) => {
-      const dateNumber = Time.getDateNumber()
-      if (dateNumber !== cachedDate) {
-        cachedMessageCount = await getMessageCount(dateNumber)
-        cachedDate = dateNumber
+  async function getSystemInfo(platform?: string): Promise<SystemInfo> {
+    const dateNumber = Time.getDateNumber()
+    if (dateNumber !== cachedDate) {
+      cachedMessageCount = await getMessageCount(dateNumber)
+      cachedDate = dateNumber
+    }
+
+    const now = Date.now()
+    const bots: BotInfo[] = []
+    
+    for (const bot of ctx.bots) {
+      if (bot.platform.startsWith('sandbox:') && platform && !platform.startsWith('sandbox:')) {
+        continue
       }
-      const background = Random.pick(cfg.background)
-      const memory = 1 - freemem() / totalmem()
-      const content = generate({
-        bot: ctx.bots,
-        path,
+      if (bot.hidden) {
+        continue
+      }
+
+      const runningTime = botStart[bot.sid] ? now - botStart[bot.sid] : uptime() * 1000
+      const messages = cachedMessageCount[bot.sid] || { send: 0, receive: 0 }
+      
+      let name = bot.user.nick || bot.user.name || ''
+      const customize = cfg.displayName.find(e => e.sid === bot.sid)
+      if (customize) {
+        name = customize.name
+      }
+
+      bots.push({
+        sid: bot.sid,
+        platform: bot.platform,
+        status: bot.status,
+        name,
+        avatar: bot.user.avatar,
+        runningTime,
+        messages: {
+          send: messages.send || 0,
+          receive: messages.receive || 0
+        }
+      })
+    }
+
+    const totalMemory = totalmem()
+    const freeMemory = freemem()
+    const usedMemory = totalMemory - freeMemory
+    const memoryPercentage = usedMemory / totalMemory
+
+    return {
+      bots,
+      system: {
+        os,
         nodeVersion: versions.node,
         v8Version: versions.v8,
-        background,
-        botStart,
         uptime: uptime() * 1000,
-        memory,
-        cpu: cpuUsedRate,
-        os,
-        messages: cachedMessageCount,
-        maskOpacity: cfg.backgroundMaskOpacity,
-        platform: session.platform,
-        displayName: cfg.displayName
-      }, cfg.darkMode)
+        memory: {
+          used: usedMemory,
+          total: totalMemory,
+          percentage: memoryPercentage
+        },
+        cpu: {
+          usage: cpuUsedRate
+        }
+      }
+    }
+  }
+
+  // 暴露 getSystemInfo 函数供外部使用
+  ctx.provide('status-image.getSystemInfo', getSystemInfo)
+
+  ctx.command('status-image', '查看运行状态')
+    .action(async ({ session }) => {
+      const systemInfo = await getSystemInfo(session.platform)
+      
+      // 随机选择背景图片
+      const background = Random.pick(cfg.background)
+      
+      // 生成 HTML 内容
+      const content = generate({
+        path,
+        background,
+        systemInfo
+      })
+      
+      // 使用 puppeteer 渲染图片
       return await ctx.puppeteer.render(content)
     })
 }
