@@ -1,182 +1,281 @@
-import { Bot, Universal, Dict } from 'koishi'
-import { MessageStats } from './index'
+import { Universal } from 'koishi'
+import { SystemInfo } from './types'
 
-interface Info {
+interface TemplateOptions {
   path: string
-  bot: Bot[]
-  memory: number
-  cpu: number
   background: string
-  botStart: Dict<number>
-  messages: Dict<MessageStats>
-  nodeVersion: string
-  v8Version: string
-  uptime: number
-  os: string
-  maskOpacity: number
-  platform: string
-  displayName: {
-    sid: string
-    name: string
-  }[]
+  systemInfo: SystemInfo
 }
 
-const statusMap: Record<Universal.Status, string[]> = {
-  [Universal.Status.OFFLINE]: ['offline', '离线'],
-  [Universal.Status.ONLINE]: ['online', '运行中'],
-  [Universal.Status.CONNECT]: ['connect', '正在连接'],
-  [Universal.Status.DISCONNECT]: ['disconnect', '正在断开'],
-  [Universal.Status.RECONNECT]: ['reconnect', '正在重连']
-}
-
-function formatDuring(ms: number) {
+function formatDuration(ms: number): string {
   const days = Math.floor(ms / (1000 * 60 * 60 * 24))
   const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-  const minutes = Math.round((ms % (1000 * 60 * 60)) / (1000 * 60))
-  return `${days}天${hours}小时${minutes}分`
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
+  return `已运行 ${days}天${hours}小时${minutes}分钟`
 }
 
-// Forked from https://github.com/yeyang52/yenai-plugin/blob/098e0310392a25b036021f5523108ee2a8d57032/model/State/utils.js#L107
-function circle(value: number) {
-  const perimeter = 3.14 * 80
-  const per = perimeter - perimeter * value
-  let color = '--low-color'
-  if (value >= 0.9) {
-    color = '--high-color'
-  } else if (value >= 0.8) {
-    color = '--medium-color'
+function getStatusInfo(status: Universal.Status): { text: string; color: string } {
+  const statusMap: Record<Universal.Status, { text: string; color: string }> = {
+    [Universal.Status.OFFLINE]: { text: '离线', color: 'bg-[#8c8fa1]' },
+    [Universal.Status.ONLINE]: { text: '运行中', color: 'bg-[#40a02b]' },
+    [Universal.Status.CONNECT]: { text: '连接中', color: 'bg-[#df8e1d]' },
+    [Universal.Status.DISCONNECT]: { text: '断开', color: 'bg-[#d20f39]' },
+    [Universal.Status.RECONNECT]: { text: '重连中', color: 'bg-[#1e66f5]' }
   }
-  return {
-    per,
-    color: `var(${color})`,
-    inner: Math.ceil(value * 100) + '%'
-  }
+  return statusMap[status] || { text: '未知', color: 'bg-gray-500' }
 }
 
-// Forked from https://github.com/yeyang52/yenai-plugin/blob/098e0310392a25b036021f5523108ee2a8d57032/resources/state/index.html
-export function generate(info: Info, dark: boolean) {
-  const now = Date.now()
-  const botList = []
-  for (const v of info.bot) {
-    if (v.platform.startsWith('sandbox:') && !info.platform.startsWith('sandbox:')) {
-      continue
-    }
-    if (v.hidden) {
-      continue
-    }
-    const runningTime = info.botStart[v.sid] ? now - info.botStart[v.sid] : info.uptime
-    const receivedMessages = info.messages[v.sid]?.receive ?? 0
-    const sentMessages = info.messages[v.sid]?.send ?? 0
-    const avatarImg = `<img src="${v.user.avatar}" />`
-    let name = v.user.nick || v.user.name || ''
-    const customize = info.displayName.find(e => e.sid === v.sid)
-    if (customize) {
-      name = customize.name
-    }
-    const content = `
-          <div class="box">
-              <div class="botInfo">
-                  <div class="avatar-box">
-                      <div class="avatar">
-                          ${v.user.avatar ? avatarImg : ''}
-                      </div>
-                      <div class="info">
-                          <div class="onlineStatus">
-                              <span class="status-light ${statusMap[v.status][0]}"></span>
-                          </div>
-                          <div class="status-text">${statusMap[v.status][1]}</div>
-                      </div>
-                  </div>
-                  <div class="header">
-                      <h1>${name}</h1>
-                      <hr noshade />
-                      <p>
-                          <span class="platform">
-                              ${v.platform}
-                          </span>
-                          <span class="running-time">
-                              已运行 ${formatDuring(runningTime)}
-                          </span>
-                      </p>
-                      <p>
-                          <span class="sent">
-                              <img src="${info.path}/icon/sent.png" />
-                              昨日发送 ${sentMessages}
-                          </span>
-                          <span class="received">
-                              <img src="${info.path}/icon/recv.png" />
-                              昨日接收 ${receivedMessages}
-                          </span>
-                      </p>
-                  </div>
-              </div>
-          </div>
-      `
-    botList.push(content)
+function getPlatformLabel(platform: string): string {
+  const plain = platform.replace(/^sandbox:/, '')
+  const map: Record<string, string> = {
+    onebot: 'Onebot',
+    qq: 'QQ',
+    discord: 'Discord',
+    telegram: 'Telegram',
+    kook: 'KOOK',
+    'wechat-official': '公众号',
+    lark: '飞书',
+    dingtalk: '钉钉',
+    line: 'LINE',
+    slack: 'Slack',
+    whatsapp: 'WhatsAPP',
+    milky: 'Milky'
   }
-  const cpuCircle = circle(info.cpu)
-  const memoryCircle = circle(info.memory)
-  const maskColor = dark ? [0, 0, 0] : [220, 224, 232]
-  const darkStylesheet = `<link rel="stylesheet" href="${info.path}/css/dark.css" />`
+  return map[plain] || plain
+}
+
+function createCircularProgress(
+  percentage: number,
+  gradientId: string,
+  from: string,
+  to: string
+): string {
+  const radius = 30
+  const circumference = 2 * Math.PI * radius
+  const strokeDasharray = circumference
+  const strokeDashoffset = circumference - (percentage / 100) * circumference
+
   return `
-        <!DOCTYPE html>
-        <html lang="zh">
-            <head>
-                <meta charset="utf-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <title>status</title>
-                <link rel="stylesheet" href="${info.path}/css/common.css" />
-                <link rel="stylesheet" href="${info.path}/css/index.css" />
-                ${dark ? darkStylesheet : ''}
-                <style>
-                    .container {
-                        background-image: url(${info.background});
-                    }
-                    .container::before {
-                        background-color: rgba(${maskColor[0]}, ${maskColor[1]}, ${maskColor[2]}, ${info.maskOpacity});
-                    }
-                </style>
-            </head>
-            <body class="elem-hydro default-mode">
-                <div class="container" id="container">
-                    ${botList.join('')}
-                    <div class="box">
-                        <ul class="mainHardware">
-                            <li class="li">
-                                <div class="container-box" data-num="${cpuCircle.inner}">
-                                    <div class="circle-outer"></div>
-                                    <svg>
-                                        <circle id="circle" stroke="${cpuCircle.color}" style="stroke-dashoffset: ${cpuCircle.per}">
-                                        </circle>
-                                    </svg>
-                                </div>
-                                <article>
-                                    <summary>CPU</summary>
-                                </article>
-                            </li>
-                            <li class="li">
-                                <div class="container-box" data-num="${memoryCircle.inner}">
-                                    <div class="circle-outer"></div>
-                                    <svg>
-                                        <circle id="circle" stroke="${memoryCircle.color}" style="stroke-dashoffset: ${memoryCircle.per}">
-                                        </circle>
-                                    </svg>
-                                </div>
-                                <article>
-                                    <summary>RAM</summary>
-                                </article>
-                            </li>
-                        </ul>
+    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
+      <defs>
+        <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="${from}" />
+          <stop offset="100%" stop-color="${to}" />
+        </linearGradient>
+      </defs>
+      <circle
+        cx="40"
+        cy="40"
+        r="30"
+        fill="transparent"
+        stroke="rgba(255,255,255,0.18)"
+        stroke-width="6"
+      />
+      <circle
+        cx="40"
+        cy="40"
+        r="30"
+        fill="transparent"
+        stroke="url(#${gradientId})"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-dasharray="${strokeDasharray}"
+        stroke-dashoffset="${strokeDashoffset}"
+        class="transition-all duration-300"
+        filter="drop-shadow(0 0 8px ${to}40)"
+      />
+    </svg>
+  `
+}
+
+export function generate(options: TemplateOptions): string {
+  const { path, background, systemInfo } = options
+  const { bots, system } = systemInfo
+
+  const primaryBot = bots[0]
+  if (!primaryBot) {
+    throw new Error('No bots available')
+  }
+
+  const statusInfo = getStatusInfo(primaryBot.status)
+  const platformLabel = getPlatformLabel(primaryBot.platform)
+  const cpuPercentage = Math.round(system.cpu.usage * 100)
+  const memoryPercentage = Math.round(system.memory.percentage * 100)
+
+  return `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=430, initial-scale=1.0">
+      <title>Status Card</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style>
+        @font-face {
+          font-family: 'NotoSansSC';
+          src: url('${path}/fonts/NotoSansSC-Regular.ttf') format('truetype');
+          font-weight: normal;
+          font-style: normal;
+          font-display: swap;
+        }
+        
+        body {
+          font-family: 'NotoSansSC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .glassmorphism {
+          background: rgba(81, 80, 80, 0.4);
+          backdrop-filter: blur(30px);
+          -webkit-backdrop-filter: blur(30px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          box-shadow: 0 10px 36px 0 rgba(0, 0, 0, 0.16);
+        }
+        
+        .progress-text {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+
+        .avatar-border {
+          border: 3px solid rgba(255, 255, 255, 0.5);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        .text-high-contrast {
+          color: #f2f3f8ff;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+        }
+        
+        .text-high-contrast {
+          color: #f2f3f8ff;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        
+        .text-low-contrast {
+          color: #f2f3f8ff;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+        }
+
+        .bg-container {
+          background-image: url('${background}');
+          background-size: cover;
+          background-position: top center;
+          background-repeat: no-repeat;
+          width: 100%;
+          height: auto;
+          min-height: 780px;
+          position: relative;
+        }
+
+        .bg-overlay {
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.2));
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(4px);
+        }
+      </style>
+    </head>
+    <body style="width: 560px; height: auto; margin: 0; padding: 0; min-height: 780px">
+      <div class="bg-container">
+        <div class="bg-overlay w-full h-full">
+          <!-- Main Container -->
+          <div class="flex items-center justify-center py-8 px-6" style="min-height: 780px;">
+            <div class="w-[92%] max-w-2xl space-y-5">
+              
+              <!-- Bot Info Card -->
+              <div class="glassmorphism rounded-2xl p-6">
+                <div class="flex items-center space-x-5 mb-4">
+                  <!-- Avatar -->
+                  <div class="relative">
+                    <img src="${primaryBot.avatar || ''}" 
+                         alt="Avatar" 
+                         class="w-20 h-20 rounded-full avatar-border object-cover">
+                    <!-- Status Indicator -->
+                    <div class="absolute -bottom-1 -right-1 w-6 h-6 ${statusInfo.color} rounded-full border-[3px] border-white flex items-center justify-center">
+                      <div class="w-2 h-2 bg-white rounded-full"></div>
                     </div>
-                    <div class="box">
-                        <div class="speed">
-                            <p>系统</p>
-                            <p>${info.os}</p>
-                        </div>
-                    </div>
-                    <div class="copyright">Node <span class="version">v${info.nodeVersion}</span> & V8 <span class="version">v${info.v8Version}</span></div>
+                  </div>
+                  
+                  <!-- Bot Details -->
+                  <div class="flex-1">
+                    <h2 class="text-2xl font-semibold text-high-contrast">${primaryBot.name}</h2>
+                    <p class="text-base text-high-contrast flex items-center gap-2">
+                      <span>${statusInfo.text}</span>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-xl text-[14px] font-medium bg-[#7f849c] text-[#f2f3f8ff]">
+                        ${platformLabel}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-            </body>
-        </html>
-    `
+                
+                <!-- Runtime -->
+                <div class="text-base text-high-contrast mb-4">
+                  ${formatDuration(primaryBot.runningTime)}
+                </div>
+                
+                <!-- Message Stats -->
+                <div class="flex justify-between text-base">
+                  <div class="flex items-center space-x-2">
+                    <img src="${path}/icon/sent.png" alt="Sent" class="w-5 h-5 opacity-90">
+                    <span class="text-high-contrast">昨日发送</span>
+                    <span class="text-high-contrast font-semibold">${primaryBot.messages.send || 0}</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <img src="${path}/icon/recv.png" alt="Received" class="w-5 h-5 opacity-90">
+                    <span class="text-high-contrast">昨日接收</span>
+                    <span class="text-high-contrast font-semibold">${primaryBot.messages.receive || 0}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- System Stats Card -->
+              <div class="glassmorphism rounded-2xl p-6">
+                <div class="flex justify-center space-x-12">
+                  <!-- CPU Usage -->
+                  <div class="flex flex-col items-center">
+                    <div class="relative w-[120px] h-[120px]">
+                      ${createCircularProgress(cpuPercentage, 'cpuGrad', '#179299', '#209fb5')}
+                      <div class="progress-text">
+                        <div class="text-2xl font-semibold text-high-contrast">${cpuPercentage}%</div>
+                      </div>
+                    </div>
+                    <div class="text-base text-high-contrast mt-3 font-medium">CPU</div>
+                  </div>
+                  
+                  <!-- RAM Usage -->
+                  <div class="flex flex-col items-center">
+                    <div class="relative w-[120px] h-[120px]">
+                      ${createCircularProgress(memoryPercentage, 'ramGrad', '#0478e5ff', '#1e66f5')}
+                      <div class="progress-text">
+                        <div class="text-2xl font-semibold text-high-contrast">${memoryPercentage}%</div>
+                      </div>
+                    </div>
+                    <div class="text-base text-high-contrast mt-3 font-medium">RAM</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- System Info Card -->
+              <div class="glassmorphism rounded-2xl p-5">
+                <div class="text-center">
+                  <div class="text-base text-high-contrast mb-2">系统</div>
+                  <div class="text-lg font-semibold text-high-contrast">${system.os}</div>
+                </div>
+              </div>
+              
+              <!-- Footer -->
+              <div class="text-center text-sm text-low-contrast pb-2">
+                Node <span class="text-high-contrast font-medium">v${system.nodeVersion}</span> & V8 <span class="text-high-contrast font-medium">v${system.v8Version}</span>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
 }
