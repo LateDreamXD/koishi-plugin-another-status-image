@@ -5,6 +5,9 @@ interface TemplateOptions {
   path: string
   background: string
   systemInfo: SystemInfo
+  // The currently-triggering session identity for selecting the primary bot
+  activeSid?: string
+  activePlatform?: string
 }
 
 function formatDuration(ms: number): string {
@@ -33,7 +36,7 @@ function getPlatformLabel(platform: string): string {
     discord: 'Discord',
     telegram: 'Telegram',
     kook: 'KOOK',
-    'wechat-official': '公众号',
+    'wechat-official': '微信公众号',
     lark: '飞书',
     dingtalk: '钉钉',
     line: 'LINE',
@@ -89,10 +92,14 @@ function createCircularProgress(
 }
 
 export function generate(options: TemplateOptions): string {
-  const { path, background, systemInfo } = options
+  const { path, background, systemInfo, activeSid, activePlatform } = options
   const { bots, system } = systemInfo
 
-  const primaryBot = bots[0]
+  // Select primary bot by sid > platform > fallback to first
+  const primaryBot =
+    (activeSid && bots.find(b => b.sid === activeSid)) ||
+    (activePlatform && bots.find(b => b.platform === activePlatform)) ||
+    bots[0]
   if (!primaryBot) {
     throw new Error('No bots available')
   }
@@ -101,6 +108,26 @@ export function generate(options: TemplateOptions): string {
   const platformLabel = getPlatformLabel(primaryBot.platform)
   const cpuPercentage = Math.round(system.cpu.usage * 100)
   const memoryPercentage = Math.round(system.memory.percentage * 100)
+
+  // Ensure the current (primary) bot is listed first in the tabs
+  const orderedBots = primaryBot ? [primaryBot, ...bots.filter(b => b.sid !== primaryBot.sid)] : bots
+
+  const botTabsHtml = orderedBots
+      .map((bot) => {
+      const s = getStatusInfo(bot.status)
+      const active = bot.sid === primaryBot.sid
+      const ring = active
+        ? 'ring-2 ring-[#1e66f5] ring-offset-2 ring-offset-white/20'
+        : 'ring-1 ring-white/20'
+      const title = `${bot.name || ''} (${getPlatformLabel(bot.platform)})`
+      return `
+          <div class="relative shrink-0" title="${title}">
+            <img src="${bot.avatar || ''}" alt="${bot.name || 'Bot'}" class="w-12 h-12 rounded-full object-cover avatar-border ${ring}">
+            <div class="absolute -bottom-1 -right-1 w-5 h-5 ${s.color} rounded-full border-[2px] border-white"></div>
+        </div>
+      `
+    })
+    .join('')
 
   return `
     <!DOCTYPE html>
@@ -176,6 +203,10 @@ export function generate(options: TemplateOptions): string {
           backdrop-filter: blur(2px);
           -webkit-backdrop-filter: blur(4px);
         }
+
+        /* hide horizontal scrollbar for avatar tabs */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       </style>
     </head>
     <body style="width: 560px; height: auto; margin: 0; padding: 0; min-height: 780px">
@@ -184,6 +215,11 @@ export function generate(options: TemplateOptions): string {
           <!-- Main Container -->
           <div class="flex items-center justify-center py-8 px-6" style="min-height: 780px;">
             <div class="w-[92%] max-w-2xl space-y-5">
+              
+              <!-- Bot Tabs -->
+              <div class="glassmorphism rounded-2xl px-4 py-3 inline-flex items-center gap-4 max-w-full overflow-x-auto no-scrollbar">
+                ${botTabsHtml}
+              </div>
               
               <!-- Bot Info Card -->
               <div class="glassmorphism rounded-2xl p-6">
@@ -204,7 +240,7 @@ export function generate(options: TemplateOptions): string {
                     <h2 class="text-2xl font-semibold text-high-contrast">${primaryBot.name}</h2>
                     <p class="text-base text-high-contrast flex items-center gap-2">
                       <span>${statusInfo.text}</span>
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-xl text-[14px] font-medium bg-[#7f849c] text-[#f2f3f8ff]">
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-xl text-[14px] font-medium bg-[#7f849c] text-[#f2f3f8ff]">
                         ${platformLabel}
                       </span>
                     </p>

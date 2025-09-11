@@ -178,7 +178,9 @@ export function apply(ctx: Context, cfg: Config) {
       const content = generate({
         path,
         background,
-        systemInfo
+        systemInfo,
+        activeSid: session.sid,
+        activePlatform: session.platform,
       })
       
       // 使用 puppeteer 渲染图片
