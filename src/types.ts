@@ -27,6 +27,11 @@ export interface SystemInfo {
       total: number
       percentage: number
     }
+    swap?: {
+      used: number
+      total: number
+      percentage: number
+    }
     cpu: {
       usage: number
     }

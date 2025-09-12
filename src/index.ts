@@ -3,6 +3,7 @@ import { versions, uptime } from 'node:process'
 import { cpus, freemem, totalmem } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { readFile } from 'node:fs/promises'
 import { osInfo } from './osinfo'
 import { MessageStats, BotInfo, SystemInfo } from './types'
 import { generate } from './template'
@@ -27,7 +28,7 @@ const path = pathToFileURL(join(__dirname, '../resource')).href
 
 export const Config: Schema<Config> = Schema.object({
   background: Schema.array(String).role('table').description('背景图片地址，将会随机抽取其一')
-    .default([`${path}/bg/default.webp`]),
+    .default([`${path}/bg/default.webp`, `${path}/bg/TohsakaRin.jpg`]),
   displayName: Schema.array(Schema.object({
     sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
     name: Schema.string().description('显示名称').required()
@@ -145,6 +146,24 @@ export function apply(ctx: Context, cfg: Config) {
     const usedMemory = totalMemory - freeMemory
     const memoryPercentage = usedMemory / totalMemory
 
+    // Try to read swap info from /proc/meminfo (Linux only)
+    let swapTotal = 0
+    let swapFree = 0
+    try {
+      const meminfo = await readFile('/proc/meminfo', 'utf8')
+      for (const line of meminfo.split('\n')) {
+        if (line.startsWith('SwapTotal:')) {
+          const kb = parseInt(line.replace(/[^0-9]/g, '')) || 0
+          swapTotal = kb * 1024
+        } else if (line.startsWith('SwapFree:')) {
+          const kb = parseInt(line.replace(/[^0-9]/g, '')) || 0
+          swapFree = kb * 1024
+        }
+      }
+    } catch {}
+    const swapUsed = swapTotal > 0 ? Math.max(0, swapTotal - swapFree) : 0
+    const swapPercentage = swapTotal > 0 ? swapUsed / swapTotal : 0
+
     return {
       bots,
       system: {
@@ -156,6 +175,15 @@ export function apply(ctx: Context, cfg: Config) {
           used: usedMemory,
           total: totalMemory,
           percentage: memoryPercentage
+        },
+        swap: swapTotal > 0 ? {
+          used: swapUsed,
+          total: swapTotal,
+          percentage: swapPercentage,
+        } : {
+          used: 0,
+          total: 0,
+          percentage: 0,
         },
         cpu: {
           usage: cpuUsedRate
