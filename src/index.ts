@@ -19,7 +19,7 @@ export const inject = ['database', 'puppeteer']
 
 export interface Config {
   background: string[]
-  theme: 'yenai-light' | 'yenai-dark' | 'aero-dark'
+  theme: 'yenai-light' | 'yenai-dark' | 'aero-dark' | 'aero-light'
   backgroundMaskOpacity?: number
   displayName: {
     sid: string
@@ -37,7 +37,7 @@ export const Config: Schema<Config> = Schema.intersect([
       sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
       name: Schema.string().description('显示名称').required()
     })).description('自定义机器人显示名称').default([]),
-    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-dark']).description('主题').required()
+    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-dark', 'aero-light']).description('主题').required()
   }),
   Schema.union([
     Schema.object({
@@ -50,6 +50,9 @@ export const Config: Schema<Config> = Schema.intersect([
     }),
     Schema.object({
       theme: Schema.const('aero-dark').required(),
+    }),
+    Schema.object({
+      theme: Schema.const('aero-light').required(),
     })
   ])
 ])
@@ -232,6 +235,16 @@ export function apply(ctx: Context, cfg: Config) {
           activePlatform: session.platform,
           displayName: cfg.displayName,
           darkMode: true
+        })
+      } else if (cfg.theme === 'aero-light') {
+        content = generateAeroTheme({
+          path,
+          background,
+          systemInfo,
+          activeSid: session.sid,
+          activePlatform: session.platform,
+          displayName: cfg.displayName,
+          darkMode: false
         })
       } else if (['yenai-light', 'yenai-dark'].includes(cfg.theme)) {
         content = generateYenaiTheme({

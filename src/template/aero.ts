@@ -59,7 +59,8 @@ function createCircularProgress(
   percentage: number,
   gradientId: string,
   from: string,
-  to: string
+  to: string,
+  track: string = 'rgba(255,255,255,0.18)'
 ): string {
   const radius = 30
   const circumference = 2 * Math.PI * radius
@@ -79,7 +80,7 @@ function createCircularProgress(
         cy="40"
         r="30"
         fill="transparent"
-        stroke="rgba(255,255,255,0.18)"
+        stroke="${track}"
         stroke-width="6"
       />
       <circle
@@ -116,6 +117,43 @@ export function generateAeroTheme(options: TemplateOptions): string {
   const { path, background, systemInfo, activeSid, activePlatform } = options
   const { bots, system } = systemInfo
 
+  // Theme tokens (light/dark) similar to yenai.ts darkMode handling
+  const theme = options.darkMode
+    ? {
+        name: 'theme-dark',
+        textHigh: '#f2f3f8',
+        textLow: '#e6e7f0',
+        textShadowHigh: '0 1px 3px rgba(0, 0, 0, 0.7)',
+        textShadowLow: '0 1px 2px rgba(0, 0, 0, 0.4)',
+        glassBg: 'rgba(81, 80, 80, 0.4)',
+        glassBorder: 'rgba(255, 255, 255, 0.2)',
+        avatarBorder: 'rgba(255, 255, 255, 0.5)',
+        ringActive: '#1e66f5',
+        ring: 'rgba(255, 255, 255, 0.2)',
+        ringOffset: 'rgba(255, 255, 255, 0.2)',
+        statusBorder: '#ffffff',
+        progressTrack: 'rgba(255, 255, 255, 0.18)',
+        platformPillBg: '#7f849c',
+        platformPillText: '#f2f3f8',
+      }
+    : {
+        name: 'theme-light',
+        textHigh: '#343648ff',
+        textLow: '#5c5f77',
+        textShadowHigh: '0 1px 2px rgba(0, 0, 0, 0.08)',
+        textShadowLow: '0 1px 1px rgba(0, 0, 0, 0.06)',
+        glassBg: 'rgba(255, 255, 255, 0.35)',
+        glassBorder: 'rgba(0, 0, 0, 0.08)',
+        avatarBorder: 'rgba(0, 0, 0, 0.08)',
+        ringActive: '#1e66f5',
+        ring: 'rgba(0, 0, 0, 0.08)',
+        ringOffset: 'rgba(255, 255, 255, 0.9)',
+        statusBorder: '#f1f5f9',
+        progressTrack: 'rgba(0, 0, 0, 0.10)',
+        platformPillBg: '#e5e7eb',
+        platformPillText: '#111827',
+      }
+
   // Select primary bot by sid > platform > fallback to first
   const primaryBot =
     (activeSid && bots.find((b) => b.sid === activeSid)) ||
@@ -142,16 +180,17 @@ export function generateAeroTheme(options: TemplateOptions): string {
 
   const botTabsHtml = orderedBots
     .map((bot) => {
+      const transparent = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII='
       const s = getStatusInfo(bot.status)
       const active = bot.sid === primaryBot.sid
-      const ring = active
-        ? 'ring-2 ring-[#1e66f5] ring-offset-2 ring-offset-white/20'
-        : 'ring-1 ring-white/20'
+      const ringBase = active ? 'ring-2 ring-offset-2' : 'ring-1'
+      const ringStyle = active
+        ? `style="--tw-ring-color: ${theme.ringActive}; --tw-ring-offset-color: ${theme.ringOffset}; --tw-ring-offset-width: 2px; --tw-ring-offset-shadow: 0 0 #0000; --tw-ring-shadow: 0 0 #0000; box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow); border-color: ${theme.avatarBorder};"`
+        : `style="--tw-ring-color: ${theme.ring}; --tw-ring-shadow: 0 0 #0000; box-shadow: var(--tw-ring-shadow); border-color: ${theme.avatarBorder};"`
       const title = `${bot.name || ''} (${getPlatformLabel(bot.platform)})`
       return `
           <div class="relative shrink-0" title="${title}">
-            <img src="${bot.avatar || ''}" alt="${bot.name || 'Bot'
-        }" class="w-12 h-12 rounded-full object-cover avatar-border ${ring}">
+            <img src="${bot.avatar || transparent}" alt="" onerror="this.onerror=null;this.src='${transparent}';this.alt='';" class="w-12 h-12 rounded-full object-cover avatar-border ${ringBase}" ${ringStyle}>
             <div class="absolute -bottom-1 -right-1 w-5 h-5 ${s.color
         } rounded-full border-[2px] border-white"></div>
         </div>
@@ -188,11 +227,25 @@ export function generateAeroTheme(options: TemplateOptions): string {
           padding: 0;
         }
 
+        /* Theming via CSS variables */
+        :root {
+          --text-high: ${theme.textHigh};
+          --text-low: ${theme.textLow};
+          --text-shadow-high: ${theme.textShadowHigh};
+          --text-shadow-low: ${theme.textShadowLow};
+          --glass-bg: ${theme.glassBg};
+          --glass-border: ${theme.glassBorder};
+          --avatar-border: ${theme.avatarBorder};
+          --progress-track: ${theme.progressTrack};
+          --platform-pill-bg: ${theme.platformPillBg};
+          --platform-pill-text: ${theme.platformPillText};
+        }
+
         .glassmorphism {
-          background: rgba(81, 80, 80, 0.4);
+          background: var(--glass-bg);
           backdrop-filter: blur(30px);
           -webkit-backdrop-filter: blur(30px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border: 1px solid var(--glass-border);
           box-shadow: 0 10px 36px 0 rgba(0, 0, 0, 0.16);
         }
 
@@ -204,23 +257,18 @@ export function generateAeroTheme(options: TemplateOptions): string {
         }
 
         .avatar-border {
-          border: 3px solid rgba(255, 255, 255, 0.5);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+          border: 3px solid var(--avatar-border);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
         }
 
         .text-high-contrast {
-          color: #f2f3f8ff;
-          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-        }
-
-        .text-high-contrast {
-          color: #f2f3f8ff;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+          color: var(--text-high);
+          text-shadow: var(--text-shadow-high);
         }
 
         .text-low-contrast {
-          color: #f2f3f8ff;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+          color: var(--text-low);
+          text-shadow: var(--text-shadow-low);
         }
 
         .bg-container {
@@ -235,9 +283,11 @@ export function generateAeroTheme(options: TemplateOptions): string {
         }
 
         .bg-overlay {
-          background: linear-gradient(135deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.2));
-          backdrop-filter: blur(2px);
-          -webkit-backdrop-filter: blur(4px);
+          ${options.darkMode
+            ? 'background: linear-gradient(135deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.2));'
+            : 'background: linear-gradient(100deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.2));'}
+          backdrop-filter: blur(3px);
+          -webkit-backdrop-filter: blur(3px);
         }
 
         /* hide horizontal scrollbar for avatar tabs */
@@ -245,7 +295,7 @@ export function generateAeroTheme(options: TemplateOptions): string {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       </style>
     </head>
-    <body style="width: 560px; height: auto; margin: 0; padding: 0; min-height: 780px">
+    <body class="${theme.name}" style="width: 560px; height: auto; margin: 0; padding: 0; min-height: 780px">
       <div class="bg-container">
         <div class="bg-overlay w-full h-full">
           <!-- Main Container -->
@@ -262,12 +312,13 @@ export function generateAeroTheme(options: TemplateOptions): string {
                 <div class="flex items-center space-x-5 mb-4">
                   <!-- Avatar -->
                   <div class="relative">
-                    <img src="${primaryBot.avatar || ''}"
-                         alt="Avatar"
+                    <img src="${primaryBot.avatar || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII='}"
+                         alt=""
+                         onerror="this.onerror=null;this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';this.alt='';"
                          class="w-20 h-20 rounded-full avatar-border object-cover">
                     <!-- Status Indicator -->
                     <div class="absolute -bottom-1 -right-1 w-6 h-6 ${statusInfo.color
-    } rounded-full border-[3px] border-white flex items-center justify-center">
+    } rounded-full border-[3px] flex items-center justify-center" style="border-color: ${theme.statusBorder};">
                       <div class="w-2 h-2 bg-white rounded-full"></div>
                     </div>
                   </div>
@@ -276,7 +327,7 @@ export function generateAeroTheme(options: TemplateOptions): string {
                   <div class="flex-1">
                     <div class="flex items-center gap-2">
                       <h2 class="text-2xl font-semibold text-high-contrast leading-tight">${botName}</h2>
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-xl text-sm font-medium bg-[#7f849c] text-[#f2f3f8ff] leading-none translate-y-[3px]">${platformLabel}</span>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-xl text-sm font-medium leading-none translate-y-[3px]" style="background: var(--platform-pill-bg); color: var(--platform-pill-text);">${platformLabel}</span>
                     </div>
                     <div class="text-base text-high-contrast mt-1">Running on ${system.os}</div>
                   </div>
@@ -314,7 +365,8 @@ export function generateAeroTheme(options: TemplateOptions): string {
       cpuPercentage,
       "cpuGrad",
       "#179299",
-      "#209fb5"
+      "#209fb5",
+      theme.progressTrack
     )}
                       <div class="progress-text">
                         <div class="text-2xl font-semibold text-high-contrast">${cpuPercentage}%</div>
@@ -330,7 +382,8 @@ export function generateAeroTheme(options: TemplateOptions): string {
       memoryPercentage,
       "ramGrad",
       "#0478e5ff",
-      "#1e66f5"
+      "#1e66f5",
+      theme.progressTrack
     )}
                       <div class="progress-text">
                         <div class="text-2xl font-semibold text-high-contrast">${memoryPercentage}%</div>
@@ -347,7 +400,8 @@ export function generateAeroTheme(options: TemplateOptions): string {
       swapPercentage,
       "swapGrad",
       "#8839ef",
-      "#ea76cb"
+      "#ea76cb",
+      theme.progressTrack
     )}
                       <div class="progress-text">
                         <div class="text-2xl font-semibold text-high-contrast">${swapPercentage}%</div>
@@ -360,9 +414,9 @@ export function generateAeroTheme(options: TemplateOptions): string {
               </div>
 
               <!-- Footer -->
-              <div class="text-center text-sm text-low-contrast pb-2">
+              <div class="text-center text-sm text-low-contrast pb-2 ">
                 Node <span class="text-high-contrast font-medium">v${system.nodeVersion
-    }</span> & V8 <span class="text-high-contrast font-medium">v${system.v8Version
+    }</span> <span class="text-low-contrast">& V8</span><span class="text-high-contrast font-medium">v${system.v8Version
     }</span>
               </div>
 
