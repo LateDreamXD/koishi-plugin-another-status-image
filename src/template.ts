@@ -1,47 +1,53 @@
-import { Universal } from 'koishi'
-import { SystemInfo } from './types'
+import { Universal } from "koishi";
+import { SystemInfo } from "./types";
 
 interface TemplateOptions {
-  path: string
-  background: string
-  systemInfo: SystemInfo
+  path: string;
+  background: string;
+  systemInfo: SystemInfo;
+  // The currently-triggering session identity for selecting the primary bot
+  activeSid?: string;
+  activePlatform?: string;
 }
 
 function formatDuration(ms: number): string {
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24))
-  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
-  return `已运行 ${days}天${hours}小时${minutes}分钟`
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  return `已运行 ${days}天${hours}小时${minutes}分钟`;
 }
 
-function getStatusInfo(status: Universal.Status): { text: string; color: string } {
+function getStatusInfo(status: Universal.Status): {
+  text: string;
+  color: string;
+} {
   const statusMap: Record<Universal.Status, { text: string; color: string }> = {
-    [Universal.Status.OFFLINE]: { text: '离线', color: 'bg-[#8c8fa1]' },
-    [Universal.Status.ONLINE]: { text: '运行中', color: 'bg-[#40a02b]' },
-    [Universal.Status.CONNECT]: { text: '连接中', color: 'bg-[#df8e1d]' },
-    [Universal.Status.DISCONNECT]: { text: '断开', color: 'bg-[#d20f39]' },
-    [Universal.Status.RECONNECT]: { text: '重连中', color: 'bg-[#1e66f5]' }
-  }
-  return statusMap[status] || { text: '未知', color: 'bg-gray-500' }
+    [Universal.Status.OFFLINE]: { text: "离线", color: "bg-[#8c8fa1]" },
+    [Universal.Status.ONLINE]: { text: "运行中", color: "bg-[#40a02b]" },
+    [Universal.Status.CONNECT]: { text: "连接中", color: "bg-[#df8e1d]" },
+    [Universal.Status.DISCONNECT]: { text: "断开", color: "bg-[#d20f39]" },
+    [Universal.Status.RECONNECT]: { text: "重连中", color: "bg-[#1e66f5]" },
+  };
+  return statusMap[status] || { text: "未知", color: "bg-gray-500" };
 }
 
 function getPlatformLabel(platform: string): string {
-  const plain = platform.replace(/^sandbox:/, '')
+  const plain = platform.replace(/^sandbox:/, "");
   const map: Record<string, string> = {
-    onebot: 'Onebot',
-    qq: 'QQ',
-    discord: 'Discord',
-    telegram: 'Telegram',
-    kook: 'KOOK',
-    'wechat-official': '公众号',
-    lark: '飞书',
-    dingtalk: '钉钉',
-    line: 'LINE',
-    slack: 'Slack',
-    whatsapp: 'WhatsAPP',
-    milky: 'Milky'
-  }
-  return map[plain] || plain
+    onebot: "Onebot",
+    qq: "QQ",
+    discord: "Discord",
+    telegram: "Telegram",
+    kook: "KOOK",
+    "wechat-official": "微信公众号",
+    lark: "飞书",
+    dingtalk: "钉钉",
+    line: "LINE",
+    slack: "Slack",
+    whatsapp: "WhatsAPP",
+    milky: "Milky",
+  };
+  return map[plain] || plain;
 }
 
 function createCircularProgress(
@@ -50,10 +56,10 @@ function createCircularProgress(
   from: string,
   to: string
 ): string {
-  const radius = 30
-  const circumference = 2 * Math.PI * radius
-  const strokeDasharray = circumference
-  const strokeDashoffset = circumference - (percentage / 100) * circumference
+  const radius = 30;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDasharray = circumference;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return `
     <svg class="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
@@ -85,22 +91,70 @@ function createCircularProgress(
         filter="drop-shadow(0 0 8px ${to}40)"
       />
     </svg>
-  `
+  `;
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  let val = bytes
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024
+    i++
+  }
+  const fixed = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
+  return `${fixed} ${units[i]}`
 }
 
 export function generate(options: TemplateOptions): string {
-  const { path, background, systemInfo } = options
-  const { bots, system } = systemInfo
+  const { path, background, systemInfo, activeSid, activePlatform } = options;
+  const { bots, system } = systemInfo;
 
-  const primaryBot = bots[0]
+  // Select primary bot by sid > platform > fallback to first
+  const primaryBot =
+    (activeSid && bots.find((b) => b.sid === activeSid)) ||
+    (activePlatform && bots.find((b) => b.platform === activePlatform)) ||
+    bots[0];
   if (!primaryBot) {
-    throw new Error('No bots available')
+    throw new Error("No bots available");
   }
 
-  const statusInfo = getStatusInfo(primaryBot.status)
-  const platformLabel = getPlatformLabel(primaryBot.platform)
-  const cpuPercentage = Math.round(system.cpu.usage * 100)
-  const memoryPercentage = Math.round(system.memory.percentage * 100)
+  const statusInfo = getStatusInfo(primaryBot.status);
+  const platformLabel = getPlatformLabel(primaryBot.platform);
+  const cpuPercentage = Math.round(system.cpu.usage * 100);
+  const memoryPercentage = Math.round(system.memory.percentage * 100);
+  const memoryUsedText = `${formatBytes(system.memory.used)} / ${formatBytes(system.memory.total)}`;
+  const swapUsed = system.swap?.used ?? 0;
+  const swapTotal = system.swap?.total ?? 0;
+  const swapPercentage = Math.round((system.swap?.percentage ?? 0) * 100);
+  const swapUsedText = `${formatBytes(swapUsed)} / ${formatBytes(swapTotal)}`;
+
+  // Ensure the current (primary) bot is listed first in the tabs
+  const orderedBots = primaryBot
+    ? [primaryBot, ...bots.filter((b) => b.sid !== primaryBot.sid)]
+    : bots;
+
+  const botTabsHtml = orderedBots
+    .map((bot) => {
+      const s = getStatusInfo(bot.status);
+      const active = bot.sid === primaryBot.sid;
+      const ring = active
+        ? "ring-2 ring-[#1e66f5] ring-offset-2 ring-offset-white/20"
+        : "ring-1 ring-white/20";
+      const title = `${bot.name || ""} (${getPlatformLabel(bot.platform)})`;
+      return `
+          <div class="relative shrink-0" title="${title}">
+            <img src="${bot.avatar || ""}" alt="${
+        bot.name || "Bot"
+      }" class="w-12 h-12 rounded-full object-cover avatar-border ${ring}">
+            <div class="absolute -bottom-1 -right-1 w-5 h-5 ${
+              s.color
+            } rounded-full border-[2px] border-white"></div>
+        </div>
+      `;
+    })
+    .join("");
 
   return `
     <!DOCTYPE html>
@@ -176,6 +230,10 @@ export function generate(options: TemplateOptions): string {
           backdrop-filter: blur(2px);
           -webkit-backdrop-filter: blur(4px);
         }
+
+        /* hide horizontal scrollbar for avatar tabs */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       </style>
     </head>
     <body style="width: 560px; height: auto; margin: 0; padding: 0; min-height: 780px">
@@ -185,29 +243,34 @@ export function generate(options: TemplateOptions): string {
           <div class="flex items-center justify-center py-8 px-6" style="min-height: 780px;">
             <div class="w-[92%] max-w-2xl space-y-5">
               
+              <!-- Bot Tabs -->
+              <div class="glassmorphism rounded-2xl px-4 py-3 inline-flex items-center gap-4 max-w-full overflow-x-auto no-scrollbar">
+                ${botTabsHtml}
+              </div>
+              
               <!-- Bot Info Card -->
               <div class="glassmorphism rounded-2xl p-6">
                 <div class="flex items-center space-x-5 mb-4">
                   <!-- Avatar -->
                   <div class="relative">
-                    <img src="${primaryBot.avatar || ''}" 
+                    <img src="${primaryBot.avatar || ""}" 
                          alt="Avatar" 
                          class="w-20 h-20 rounded-full avatar-border object-cover">
                     <!-- Status Indicator -->
-                    <div class="absolute -bottom-1 -right-1 w-6 h-6 ${statusInfo.color} rounded-full border-[3px] border-white flex items-center justify-center">
+                    <div class="absolute -bottom-1 -right-1 w-6 h-6 ${
+                      statusInfo.color
+                    } rounded-full border-[3px] border-white flex items-center justify-center">
                       <div class="w-2 h-2 bg-white rounded-full"></div>
                     </div>
                   </div>
                   
                   <!-- Bot Details -->
                   <div class="flex-1">
-                    <h2 class="text-2xl font-semibold text-high-contrast">${primaryBot.name}</h2>
-                    <p class="text-base text-high-contrast flex items-center gap-2">
-                      <span>${statusInfo.text}</span>
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-xl text-[14px] font-medium bg-[#7f849c] text-[#f2f3f8ff]">
-                        ${platformLabel}
-                      </span>
-                    </p>
+                    <div class="flex items-center gap-2">
+                      <h2 class="text-2xl font-semibold text-high-contrast leading-tight">${primaryBot.name}</h2>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-xl text-sm font-medium bg-[#7f849c] text-[#f2f3f8ff] leading-none translate-y-[3px]">${platformLabel}</span>
+                    </div>
+                    <div class="text-base text-high-contrast mt-1">Running on ${system.os}</div>
                   </div>
                 </div>
                 
@@ -221,23 +284,32 @@ export function generate(options: TemplateOptions): string {
                   <div class="flex items-center space-x-2">
                     <img src="${path}/icon/sent.png" alt="Sent" class="w-5 h-5 opacity-90">
                     <span class="text-high-contrast">昨日发送</span>
-                    <span class="text-high-contrast font-semibold">${primaryBot.messages.send || 0}</span>
+                    <span class="text-high-contrast font-semibold">${
+                      primaryBot.messages.send || 0
+                    }</span>
                   </div>
                   <div class="flex items-center space-x-2">
                     <img src="${path}/icon/recv.png" alt="Received" class="w-5 h-5 opacity-90">
                     <span class="text-high-contrast">昨日接收</span>
-                    <span class="text-high-contrast font-semibold">${primaryBot.messages.receive || 0}</span>
+                    <span class="text-high-contrast font-semibold">${
+                      primaryBot.messages.receive || 0
+                    }</span>
                   </div>
                 </div>
               </div>
               
               <!-- System Stats Card -->
               <div class="glassmorphism rounded-2xl p-6">
-                <div class="flex justify-center space-x-12">
+                <div class="flex justify-center gap-10">
                   <!-- CPU Usage -->
                   <div class="flex flex-col items-center">
                     <div class="relative w-[120px] h-[120px]">
-                      ${createCircularProgress(cpuPercentage, 'cpuGrad', '#179299', '#209fb5')}
+                      ${createCircularProgress(
+                        cpuPercentage,
+                        "cpuGrad",
+                        "#179299",
+                        "#209fb5"
+                      )}
                       <div class="progress-text">
                         <div class="text-2xl font-semibold text-high-contrast">${cpuPercentage}%</div>
                       </div>
@@ -245,30 +317,49 @@ export function generate(options: TemplateOptions): string {
                     <div class="text-base text-high-contrast mt-3 font-medium">CPU</div>
                   </div>
                   
-                  <!-- RAM Usage -->
+                   <!-- RAM Usage -->
                   <div class="flex flex-col items-center">
                     <div class="relative w-[120px] h-[120px]">
-                      ${createCircularProgress(memoryPercentage, 'ramGrad', '#0478e5ff', '#1e66f5')}
+                      ${createCircularProgress(
+                        memoryPercentage,
+                        "ramGrad",
+                        "#0478e5ff",
+                        "#1e66f5"
+                      )}
                       <div class="progress-text">
                         <div class="text-2xl font-semibold text-high-contrast">${memoryPercentage}%</div>
                       </div>
                     </div>
                     <div class="text-base text-high-contrast mt-3 font-medium">RAM</div>
+                    <div class="text-xs text-high-contrast mt-1">${memoryUsedText}</div>
                   </div>
-                </div>
-              </div>
-              
-              <!-- System Info Card -->
-              <div class="glassmorphism rounded-2xl p-5">
-                <div class="text-center">
-                  <div class="text-base text-high-contrast mb-2">系统</div>
-                  <div class="text-lg font-semibold text-high-contrast">${system.os}</div>
+
+                  <!-- SWAP Usage -->
+                  <div class="flex flex-col items-center">
+                    <div class="relative w-[120px] h-[120px]">
+                      ${createCircularProgress(
+                        swapPercentage,
+                        "swapGrad",
+                        "#8839ef",
+                        "#ea76cb"
+                      )}
+                      <div class="progress-text">
+                        <div class="text-2xl font-semibold text-high-contrast">${swapPercentage}%</div>
+                      </div>
+                    </div>
+                    <div class="text-base text-high-contrast mt-3 font-medium">SWAP</div>
+                    <div class="text-xs text-high-contrast mt-1">${swapUsedText}</div>
+                  </div>
                 </div>
               </div>
               
               <!-- Footer -->
               <div class="text-center text-sm text-low-contrast pb-2">
-                Node <span class="text-high-contrast font-medium">v${system.nodeVersion}</span> & V8 <span class="text-high-contrast font-medium">v${system.v8Version}</span>
+                Node <span class="text-high-contrast font-medium">v${
+                  system.nodeVersion
+                }</span> & V8 <span class="text-high-contrast font-medium">v${
+    system.v8Version
+  }</span>
               </div>
               
             </div>
@@ -277,5 +368,5 @@ export function generate(options: TemplateOptions): string {
       </div>
     </body>
     </html>
-  `
+  `;
 }
