@@ -8,6 +8,11 @@ interface TemplateOptions {
   // The currently-triggering session identity for selecting the primary bot
   activeSid?: string
   activePlatform?: string
+  displayName: {
+    sid: string
+    name: string
+  }[]
+  darkMode: boolean
 }
 
 function formatDuration(ms: number): string {
@@ -107,7 +112,7 @@ function formatBytes(bytes: number): string {
   return `${fixed} ${units[i]}`
 }
 
-export function generate(options: TemplateOptions): string {
+export function generateAeroTheme(options: TemplateOptions): string {
   const { path, background, systemInfo, activeSid, activePlatform } = options
   const { bots, system } = systemInfo
 
@@ -153,6 +158,12 @@ export function generate(options: TemplateOptions): string {
       `
     })
     .join('')
+
+  let botName = primaryBot.name || ''
+  const customize = options.displayName.find(e => e.sid === primaryBot.sid)
+  if (customize) {
+    botName = customize.name
+  }
 
   return `
     <!DOCTYPE html>
@@ -264,7 +275,7 @@ export function generate(options: TemplateOptions): string {
                   <!-- Bot Details -->
                   <div class="flex-1">
                     <div class="flex items-center gap-2">
-                      <h2 class="text-2xl font-semibold text-high-contrast leading-tight">${primaryBot.name}</h2>
+                      <h2 class="text-2xl font-semibold text-high-contrast leading-tight">${botName}</h2>
                       <span class="inline-flex items-center px-2 py-0.5 rounded-xl text-sm font-medium bg-[#7f849c] text-[#f2f3f8ff] leading-none translate-y-[3px]">${platformLabel}</span>
                     </div>
                     <div class="text-base text-high-contrast mt-1">Running on ${system.os}</div>

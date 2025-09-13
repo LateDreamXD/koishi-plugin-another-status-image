@@ -6,7 +6,8 @@ import { pathToFileURL } from 'node:url'
 import { readFile } from 'node:fs/promises'
 import { osInfo } from './osinfo'
 import { MessageStats, BotInfo, SystemInfo } from './types'
-import { generate } from './template'
+import { generateAeroTheme } from './template/aero'
+import { generateYenaiTheme } from './template/yenai'
 import type { } from '@koishijs/plugin-analytics'
 import type { } from 'koishi-plugin-puppeteer'
 
@@ -18,6 +19,8 @@ export const inject = ['database', 'puppeteer']
 
 export interface Config {
   background: string[]
+  theme: 'yenai-light' | 'yenai-dark' | 'aero-dark'
+  backgroundMaskOpacity?: number
   displayName: {
     sid: string
     name: string
@@ -26,14 +29,30 @@ export interface Config {
 
 const path = pathToFileURL(join(__dirname, '../resource')).href
 
-export const Config: Schema<Config> = Schema.object({
-  background: Schema.array(String).role('table').description('背景图片地址，将会随机抽取其一')
-    .default([`${path}/bg/default.webp`, `${path}/bg/TohsakaRin.jpg`]),
-  displayName: Schema.array(Schema.object({
-    sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
-    name: Schema.string().description('显示名称').required()
-  })).description('自定义机器人显示名称').default([])
-})
+export const Config: Schema<Config> = Schema.intersect([
+  Schema.object({
+    background: Schema.array(String).role('table').description('背景图片地址，将会随机抽取其一')
+      .default([`${path}/bg/default.webp`, `${path}/bg/TohsakaRin.webp`]),
+    displayName: Schema.array(Schema.object({
+      sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
+      name: Schema.string().description('显示名称').required()
+    })).description('自定义机器人显示名称').default([]),
+    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-dark']).description('主题').default('aero-dark')
+  }),
+  Schema.union([
+    Schema.object({
+      theme: Schema.const('yenai-light').required(),
+      backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.15),
+    }),
+    Schema.object({
+      theme: Schema.const('yenai-dark').required(),
+      backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.15),
+    }),
+    Schema.object({
+      theme: Schema.const('aero-dark').required(),
+    })
+  ])
+])
 
 // Forked from https://github.com/koishijs/webui/blob/14ec1b6164cec194b1725f7cd076622e76cb946f/plugins/status/src/profile.ts#L52
 function getCpuUsage() {
@@ -109,7 +128,7 @@ export function apply(ctx: Context, cfg: Config) {
 
     const now = Date.now()
     const bots: BotInfo[] = []
-    
+
     for (const bot of ctx.bots) {
       if (bot.platform.startsWith('sandbox:') && platform && !platform.startsWith('sandbox:')) {
         continue
@@ -120,7 +139,7 @@ export function apply(ctx: Context, cfg: Config) {
 
       const runningTime = botStart[bot.sid] ? now - botStart[bot.sid] : uptime() * 1000
       const messages = cachedMessageCount[bot.sid] || { send: 0, receive: 0 }
-      
+
       let name = bot.user.nick || bot.user.name || ''
       const customize = cfg.displayName.find(e => e.sid === bot.sid)
       if (customize) {
@@ -160,7 +179,7 @@ export function apply(ctx: Context, cfg: Config) {
           swapFree = kb * 1024
         }
       }
-    } catch {}
+    } catch { }
     const swapUsed = swapTotal > 0 ? Math.max(0, swapTotal - swapFree) : 0
     const swapPercentage = swapTotal > 0 ? swapUsed / swapTotal : 0
 
@@ -198,19 +217,33 @@ export function apply(ctx: Context, cfg: Config) {
   ctx.command('status-image', '查看运行状态')
     .action(async ({ session }) => {
       const systemInfo = await getSystemInfo(session.platform)
-      
+
       // 随机选择背景图片
       const background = Random.pick(cfg.background)
-      
+
       // 生成 HTML 内容
-      const content = generate({
-        path,
-        background,
-        systemInfo,
-        activeSid: session.sid,
-        activePlatform: session.platform,
-      })
-      
+      let content: string
+      if (cfg.theme === 'aero-dark') {
+        content = generateAeroTheme({
+          path,
+          background,
+          systemInfo,
+          activeSid: session.sid,
+          activePlatform: session.platform,
+          displayName: cfg.displayName,
+          darkMode: true
+        })
+      } else if (['yenai-light', 'yenai-dark'].includes(cfg.theme)) {
+        content = generateYenaiTheme({
+          path,
+          background,
+          systemInfo,
+          maskOpacity: cfg.backgroundMaskOpacity,
+          displayName: cfg.displayName,
+          darkMode: cfg.theme === 'yenai-dark'
+        })
+      }
+
       // 使用 puppeteer 渲染图片
       return await ctx.puppeteer.render(content)
     })
