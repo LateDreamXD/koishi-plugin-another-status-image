@@ -37,7 +37,7 @@ export const Config: Schema<Config> = Schema.intersect([
       sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
       name: Schema.string().description('显示名称').required()
     })).description('自定义机器人显示名称').default([]),
-    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-dark']).description('主题').default('aero-dark')
+    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-dark']).description('主题').required()
   }),
   Schema.union([
     Schema.object({
