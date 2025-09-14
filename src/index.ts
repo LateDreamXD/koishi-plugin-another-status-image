@@ -19,7 +19,7 @@ export const inject = ['database', 'puppeteer']
 
 export interface Config {
   background: string[]
-  theme: 'yenai-light' | 'yenai-dark' | 'aero-dark' | 'aero-light'
+  theme: 'yenai-light' | 'yenai-dark' | 'aero-light' | 'aero-dark'
   backgroundMaskOpacity?: number
   displayName: {
     sid: string
@@ -37,7 +37,7 @@ export const Config: Schema<Config> = Schema.intersect([
       sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
       name: Schema.string().description('显示名称').required()
     })).description('自定义机器人显示名称').default([]),
-    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-dark', 'aero-light']).description('主题').required()
+    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-light', 'aero-dark']).description('主题').required()
   }),
   Schema.union([
     Schema.object({
@@ -49,10 +49,10 @@ export const Config: Schema<Config> = Schema.intersect([
       backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.15),
     }),
     Schema.object({
-      theme: Schema.const('aero-dark').required(),
+      theme: Schema.const('aero-light').required(),
     }),
     Schema.object({
-      theme: Schema.const('aero-light').required(),
+      theme: Schema.const('aero-dark').required(),
     })
   ])
 ])
