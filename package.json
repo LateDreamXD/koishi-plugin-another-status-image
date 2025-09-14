@@ -35,7 +35,17 @@
     "koishi": "^4.17.7"
   },
   "devDependencies": {
-    "koishi-plugin-puppeteer": "^3.8.4"
+    "koishi-plugin-puppeteer": "^3.8.4",
+    "esbuild": "^0.25.9",
+    "tsc": "^2.0.4",
+    "typescript": "^5.9.2",
+    "yakumo": "^1.0.0",
+    "yakumo-esbuild": "^1.0.0",
+    "yakumo-tsc": "^1.0.0",
+    "yml-register": "^1.2.5"
+  },
+  "scripts": {
+    "build": "yakumo build"
   },
   "koishi": {
     "description": {
