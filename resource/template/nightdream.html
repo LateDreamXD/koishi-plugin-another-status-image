@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>状态</title>
+  <style>
+    * {
+      margin: 0; padding: 0;
+    }
+    html {
+      width: 400px;
+      height: 500px;
+      background: transparent;
+    }
+
+    #main {
+      width: 400px;
+      height: 500px;
+      background-image: url('%bg%');
+      background-size: cover;
+      background-position: center;
+      background-clip: padding-box;
+      border: 2px solid transparent;
+      border-radius: 16px;
+      position: relative;
+    }
+    #main::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      bottom: 0;
+      /* height: 100%;
+      width: 100%; */
+      z-index: -1;
+      margin: -2px;
+      border-radius: inherit;
+      background-image: linear-gradient(90deg, pink, hotpink, deeppink);
+    }
+    .bot {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      align-items: center;
+      flex-direction: column;
+      justify-content: space-around;
+      grid-template-areas: 'info info'
+      'status status'
+      'env env'
+      'plugin theme';
+    }
+    .bot>* {
+      /* width: fit-content;
+      height: fit-content; */
+      padding: 0.45em 1.25em;
+
+      border-radius: 12px;
+      color: #ffe0e9;
+      background-color: rgba(80, 80, 80, %mask_opacity%);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: rgba(14, 14, 14, 0.19) 0px 6px 15px 0px;
+    }
+    .avatar-panel {
+      width: 64px;
+      height: 64px;
+      margin-right: 0.4em;
+    }
+    .avatar-panel>.status {
+      position: absolute;
+    }
+    .avatar {
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      border-radius: 100%;
+      outline: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .name {
+      font-size: 1.45em;
+    }
+    .bot-info {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      grid-area: info;
+    }
+    .info>* {
+      display: block;
+    }
+    .bot-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      grid-area: status;
+    }
+    .bot-status>* {
+      width: 100%;
+      text-align: center;
+      margin-top: 0.8em;
+    }
+    .bot-env {
+      grid-area: env;
+      text-align: center;
+    }
+    .icon {
+      width: 16px;
+      height: 16px;
+      filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.5));
+    }
+
+    .copyright {
+      grid-area: copyright;
+    }
+
+    .progress {
+      display: block;
+      margin: auto;
+      width: 60%;
+      height: 20px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background: linear-gradient(to right, var(--colors) var(--progress), transparent 0);
+      transition: --progress 0.3s ease-in-out;
+    }
+
+    @property --progress {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 0%;
+  }
+  </style>
+</head>
+
+<body>
+  <div id="main" style="">
+    <div class="bot">
+      <div class="bot-info">
+        <span class="avatar-panel">
+          <img class="avatar" src="%avatar%" alt="" />
+          <span class="status" style="color: %status_color%;">
+            <svg width="64" height="64">
+              <circle cx="55" cy="55" r="8" fill="currentColor" />
+            </svg>
+          </span>
+        </span>
+        <span class="info">
+          <p class="name">%name%</p>
+          <p class="uptime">运行时间: %uptime%</p>
+        </span>
+      </div>
+
+      <div class="bot-status">
+        <span class="cpu">
+          <span class="progress" style="--colors: pink, hotpink, deeppink;--progress: %cpu_usage%;border-color: pink;"></span>
+          <p>CPU: %cpu_usage%</p>
+        </span>
+
+        <span class="memory">
+          <span class="progress" style="--colors: skyblue, deepskyblue, blue;--progress: %memory_usage%;border-color: skyblue;"></span>
+          <p>内存: %memory_usage%</p>
+        </span>
+
+        <span class="disk">
+          <span class="progress" style="--colors: yellow, gold, orange;--progress: %disk_usage%;border-color: yellow;"></span>
+          <p>硬盘: %disk_usage%</p>
+        </span>
+      </div>
+
+      <div class="bot-env">
+        <p class="os">
+          <img class="icon" src="%os_icon%" /> %os%
+        </p>
+        <p class="platform">
+          <img class="icon" src="https://koishi.chat/logo.png" /> Koishi v%koishi_version%
+        </p>
+        <p class="node">
+          <img class="icon" src="https://nodejs.org/static/logos/jsIconGreen.svg" /> Node.js v%node_version%
+        </p>
+
+      </div>
+
+      <p class="plugin" style="grid-area: plugin; font-size: 12px;">
+        another status image
+      </p>
+      <p class="theme" style="grid-area: theme; font-size: 12px;">
+        Theme by LateDream <img class="icon" src="https://about.latedream.cn/avatar" style="border-radius: 100%;" />
+      </p>
+    </div>
+  </div>
+</body>
+
+</html>

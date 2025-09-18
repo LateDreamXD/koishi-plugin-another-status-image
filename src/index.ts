@@ -8,6 +8,7 @@ import { osInfo } from './osinfo'
 import { MessageStats, BotInfo, SystemInfo } from './types'
 import { generateAeroTheme } from './template/aero'
 import { generateYenaiTheme } from './template/yenai'
+import * as nightDreamTheme from './template/nightdream';
 import type { } from '@koishijs/plugin-analytics'
 import type { } from 'koishi-plugin-puppeteer'
 
@@ -19,7 +20,7 @@ export const inject = ['database', 'puppeteer']
 
 export interface Config {
   background: string[]
-  theme: 'yenai-light' | 'yenai-dark' | 'aero-light' | 'aero-dark'
+  theme: 'yenai-light' | 'yenai-dark' | 'aero-light' | 'aero-dark' | 'nightdream';
   backgroundMaskOpacity?: number
   displayName: {
     sid: string
@@ -37,7 +38,7 @@ export const Config: Schema<Config> = Schema.intersect([
       sid: Schema.string().description('机器人平台名与自身 ID, 例如 `onebot:123456`').required(),
       name: Schema.string().description('显示名称').required()
     })).description('自定义机器人显示名称').default([]),
-    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-light', 'aero-dark']).description('主题').required()
+    theme: Schema.union(['yenai-light', 'yenai-dark', 'aero-light', 'aero-dark', 'nightdream']).description('主题').required()
   }),
   Schema.union([
     Schema.object({
@@ -47,6 +48,10 @@ export const Config: Schema<Config> = Schema.intersect([
     Schema.object({
       theme: Schema.const('yenai-dark').required(),
       backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.15),
+    }),
+    Schema.object({
+      theme: Schema.const('nightdream').required(),
+      backgroundMaskOpacity: Schema.natural().max(1).step(0.01).description('背景遮罩不透明度').default(0.45),
     }),
     Schema.object({
       theme: Schema.const('aero-light').required(),
@@ -249,6 +254,15 @@ export function apply(ctx: Context, cfg: Config) {
             maskOpacity: cfg.backgroundMaskOpacity,
             displayName: cfg.displayName,
             darkMode: cfg.theme.includes('dark')
+          });
+          break;
+        case 'nightdream':
+          content = nightDreamTheme.genHtml({
+            path,
+            background,
+            systemInfo,
+            maskOpacity: cfg.backgroundMaskOpacity,
+            displayName: cfg.displayName,
           });
       }
       // 原代码

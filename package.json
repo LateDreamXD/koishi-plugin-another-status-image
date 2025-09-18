@@ -1,7 +1,7 @@
 {
-  "name": "koishi-plugin-status-image",
-  "description": "Status view",
-  "version": "2.0.0",
+  "name": "koishi-plugin-another-status-image",
+  "description": "another Status view",
+  "version": "2.0.0+ldpatch.1",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -12,7 +12,7 @@
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/idranme/koishi-plugin-status-image.git"
+    "url": "https://github.com/LateDreamXD/koishi-plugin-another-status-image.git"
   },
   "keywords": [
     "chatbot",
@@ -22,6 +22,11 @@
   ],
   "contributors": [
     {
+      "name": "LateDream",
+      "email": "xiaozhisans@qq.com",
+      "url": "https://about.latedream.cn"
+    },
+    {
       "name": "idranme",
       "email": "email@email.com"
     },
@@ -30,15 +35,18 @@
       "email": "itzdrli@proton.me"
     }
   ],
+  "dependencies": {
+    "diskusage": "^1.2.0"
+  },
   "peerDependencies": {
     "@koishijs/plugin-analytics": ">=2.0.6",
     "koishi": "^4.17.7"
   },
   "devDependencies": {
-    "koishi-plugin-puppeteer": "^3.8.4",
-    "koishi": "^4.18.9",
     "@koishijs/plugin-analytics": "^2.0.6",
     "esbuild": "^0.25.9",
+    "koishi": "^4.18.9",
+    "koishi-plugin-puppeteer": "^3.8.4",
     "tsc": "^2.0.4",
     "typescript": "^5.9.2",
     "yakumo": "^1.0.0",
@@ -50,9 +58,13 @@
     "build": "yakumo build"
   },
   "koishi": {
+    "break_with": {
+      "koishi-plugin-status-image": "*"
+    },
     "description": {
-      "en": "Déjà vu running status view",
-      "zh": "似曾相识的运行状态视图"
+      "en": "Another running status view",
+      "zh": "另一个运行状态图"
     }
-  }
+  },
+  "packageManager": "pnpm@10.14.0"
 }
