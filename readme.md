@@ -1,8 +1,8 @@
 # koishi-plugin-status-image
 
-[![npm](https://img.shields.io/npm/v/koishi-plugin-status-image?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-status-image)
+[![npm](https://img.shields.io/npm/v/koishi-plugin-another-status-image?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-another-status-image)
 
-Déjà vu running status view
+another running status view, based on [koishi-plugin-status-image](https://github.com/koishijs/koishi-plugin-status-image)
 
 ## Frequently Asked Questions about the GNU Licenses
 
